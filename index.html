@@ -37,12 +37,8 @@
         }
 
         .icono-mano {
+            font-size: 5rem;
             margin: 2rem 0;
-        }
-
-        .icono-mano img {
-            width: 150px;
-            height: 150px;
         }
 
         p {
@@ -83,9 +79,7 @@
     <!-- Contenedor de la alerta sísmica -->
     <div id="alerta" class="alerta-container hidden">
         <h1>Alerta Sísmica</h1>
-        <div class="icono-mano">
-            <img src="manogg.png" alt="Ícono de Mano">
-        </div>
+        <div class="icono-mano">⚠️</div>
         <p><strong>Sismo fuerte, mantén la calma y procede a evacuar</strong></p>
         <p class="nota">Aviso sujeto a posibles errores</p>
         <div class="boton-container">
@@ -121,14 +115,14 @@
         }
 
         // Función para iniciar las ondas dinámicamente
-        function triggerWaves(id, lat, lng) {
+        function triggerWaves(id, lat, lng, alerta = false) {
             const center = [lat, lng];
 
             // Si ya existe el círculo para este aviso, no lo duplicamos
             if (activeCircles[id]) return;
 
             // Mostrar alerta para sismos fuertes
-            if (id.includes("fuerte")) {
+            if (alerta) {
                 mostrarAlerta();
             }
 
@@ -185,7 +179,8 @@
                     data.forEach(aviso => {
                         if (aviso.lat && aviso.lng) {
                             const id = `${aviso.lat}-${aviso.lng}`; // Generar un ID único
-                            triggerWaves(id, aviso.lat, aviso.lng);
+                            const alerta = aviso.info && aviso.info.includes("fuerte"); // Detectar si es fuerte
+                            triggerWaves(id, aviso.lat, aviso.lng, alerta);
                         }
                     });
                 } else {
@@ -201,4 +196,3 @@
     </script>
 </body>
 </html>
-
