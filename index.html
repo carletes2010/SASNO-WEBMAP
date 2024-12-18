@@ -6,153 +6,161 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
+        /* Estilo para el mapa */
         #map {
             height: 100vh;
             width: 100%;
         }
 
-        .hidden {
+        /* Contenedor del iframe */
+        #iframe-container {
             display: none;
-        }
-
-        .alerta-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: #FF0000;
-            color: #FFFFFF;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
             z-index: 9999;
+            background-color: rgba(255, 255, 255, 0.95);
         }
 
-        h1 {
-            font-size: 4rem;
-            margin: 0;
-        }
-
-        .icono-mano {
-            font-size: 5rem;
-            margin: 2rem 0;
-        }
-
-        p {
-            font-size: 1.5rem;
-            margin: 0.5rem 0;
-        }
-
-        .nota {
-            font-size: 0.9rem;
-        }
-
-        .boton-container {
-            margin-top: 2rem;
-        }
-
-        button {
-            background-color: #FFFFFF;
-            color: #FF0000;
+        iframe {
+            width: 100%;
+            height: 100%;
             border: none;
-            padding: 1rem 2rem;
-            font-size: 1rem;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-
-        button:hover {
-            background-color: #FFDADA;
         }
     </style>
 </head>
 <body>
+    <!-- Contenedor del mapa -->
     <div id="map"></div>
 
-    <!-- Contenedor de la alerta sísmica -->
-    <div id="alerta" class="alerta-container hidden">
-        <h1>Alerta Sísmica</h1>
-        <div class="icono-mano">⚠️</div>
-        <p><strong>Sismo fuerte, mantén la calma y procede a evacuar</strong></p>
-        <p class="nota">Aviso sujeto a posibles errores</p>
-        <div class="boton-container">
-            <button onclick="cerrarAviso()">Cerrar Aviso</button>
-        </div>
+    <!-- Contenedor del iframe -->
+    <div id="iframe-container">
+        <iframe id="alert-iframe" src=""></iframe>
     </div>
+
+    <!-- Archivos de audio -->
+    <audio id="audio-ondas" src="inicios.mp3" preload="auto"></audio>
+    <audio id="audio-alerta" src="alerta.mp3" preload="auto"></audio>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
-        // Configurar el mapa
-        const map = L.map('map', {
-            center: [19.446, -99.965],
-            zoom: 7,
-        });
+        let map;
+        const ondasActivas = {}; // Guardar círculos activos para evitar duplicados
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+        // Inicializar el mapa
+        function inicializarMapa() {
+            map = L.map('map', {
+                center: [19.446, -99.965],
+                zoom: 7
+            });
 
-        // Almacenar referencias a las ondas activas
-        const activeCircles = {};
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
 
-        // Mostrar alerta sísmica
-        function mostrarAlerta() {
-            document.getElementById("alerta").classList.remove("hidden");
-            document.getElementById("map").classList.add("hidden");
+            console.log("🗺️ Mapa inicializado correctamente.");
         }
 
-        // Cerrar alerta sísmica
-        function cerrarAviso() {
-            document.getElementById("alerta").classList.add("hidden");
-            document.getElementById("map").classList.remove("hidden");
+        document.addEventListener("DOMContentLoaded", inicializarMapa);
+
+        // Reproducir audio de inicio de ondas
+        function reproducirAudioOndas() {
+            const audio = document.getElementById('audio-ondas');
+            audio.play()
+                .then(() => console.log("🔊 Audio de inicio reproducido."))
+                .catch(err => console.error("❌ Error al reproducir audio de ondas:", err));
         }
 
-        // Función para procesar sismos detectados
-        function procesarSismo(coordenadas, ubicacion) {
-            const [lat, lng] = coordenadas.split(',').map(coord => parseFloat(coord.trim()));
-            const id = `${lat}-${lng}`; // ID único basado en coordenadas
+        // Reproducir audio de alerta durante 1 minuto
+        function reproducirAudioAlerta() {
+            const audio = document.getElementById('audio-alerta');
+            audio.loop = true; // Habilitar bucle
+            audio.play()
+                .then(() => {
+                    console.log("🚨 Audio de alerta iniciado.");
+                    // Detener el audio después de 1 minuto
+                    setTimeout(() => {
+                        audio.pause();
+                        audio.currentTime = 0;
+                        console.log("🛑 Audio de alerta detenido después de 1 minuto.");
+                    }, 60000); // 60,000 ms = 1 minuto
+                })
+                .catch(err => console.error("❌ Error al reproducir audio de alerta:", err));
+        }
 
-            // Si ya existe el círculo, no duplicar
-            if (activeCircles[id]) return;
+        // Dibujar ondas sísmicas
+        function simularOndas(lat, lng) {
+            const id = `${lat}-${lng}`;
+            if (ondasActivas[id]) return; // Evitar duplicados
 
-            // Crear ondas sísmicas
-            const primaryWave = simulateWave([lat, lng], 7000, 'purple'); // Onda primaria
-            const secondaryWave = simulateWave([lat, lng], 4000, '#efb810'); // Onda secundaria
+            console.log(`🌍 Dibujando ondas sísmicas en: (${lat}, ${lng})`);
 
-            // Almacenar referencias a las ondas
-            activeCircles[id] = [primaryWave, secondaryWave];
+            reproducirAudioOndas(); // Reproducir el audio al inicio de las ondas
 
-            // Eliminar ondas después de 120 segundos
+            const primaryWave = crearOnda([lat, lng], 7000, 'purple');
+            const secondaryWave = crearOnda([lat, lng], 4000, '#efb810');
+
+            ondasActivas[id] = [primaryWave, secondaryWave];
+
+            // Eliminar las ondas después de 120 segundos
             setTimeout(() => {
-                activeCircles[id].forEach(circle => map.removeLayer(circle));
-                delete activeCircles[id];
+                primaryWave.remove();
+                secondaryWave.remove();
+                delete ondasActivas[id];
             }, 120000);
         }
 
-        // Función para crear ondas
-        function simulateWave(center, speed, color) {
-            let radius = 0;
-            const intervalSpeed = speed / 100; // Velocidad por intervalo (10 ms)
-            const duration = 120000; // Duración de 120 segundos
+        // Crear una onda en expansión
+        function crearOnda(center, velocidad, color) {
+            let radio = 0;
+            const incremento = velocidad / 100;
             const circle = L.circle(center, {
                 color: color,
                 fillOpacity: 0,
-                radius: radius
+                radius: radio
             }).addTo(map);
 
-            // Actualizar círculo
-            const interval = setInterval(() => {
-                radius += intervalSpeed;
-                circle.setRadius(radius);
+            const intervalo = setInterval(() => {
+                radio += incremento;
+                circle.setRadius(radio);
             }, 10);
 
-            // Eliminar círculo después de 120 segundos
-            setTimeout(() => clearInterval(interval), duration);
+            setTimeout(() => clearInterval(intervalo), 120000);
 
             return circle;
+        }
+
+        // Mostrar iframe con alerta
+        function mostrarIframe(url) {
+            const iframeContainer = document.getElementById("iframe-container");
+            const iframe = document.getElementById("alert-iframe");
+            iframe.src = url;
+            iframeContainer.style.display = "block";
+
+            console.log("🚨 Iframe de alerta mostrado.");
+            reproducirAudioAlerta();
+
+            // Ocultar automáticamente después de 15 segundos
+            setTimeout(() => {
+                iframeContainer.style.display = "none";
+                iframe.src = "";
+                console.log("🟢 Iframe ocultado después de 15 segundos.");
+            }, 15000);
+        }
+
+        // Procesar eventos
+        function procesarEventos(eventos) {
+            eventos.forEach(evento => {
+                if (evento.evento === "alerta_sismica") {
+                    console.log("🚨 Alerta sísmica detectada.");
+                    mostrarIframe("https://monitorsasjc.vercel.app/alerta.html");
+                } else if (evento.evento === "sismo_detectado" && evento.coordenadas) {
+                    const [lat, lng] = evento.coordenadas.split(',').map(coord => parseFloat(coord.trim()));
+                    simularOndas(lat, lng);
+                }
+            });
         }
 
         // Escuchar datos desde el servidor
@@ -161,14 +169,12 @@
                 const response = await fetch('https://sasjcwebmap.onrender.com/eventos');
                 if (response.ok) {
                     const { eventos } = await response.json();
-
-                    eventos.forEach(evento => {
-                        if (evento.evento === "alerta_sismica") {
-                            mostrarAlerta();
-                        } else if (evento.evento === "sismo_detectado" && evento.coordenadas) {
-                            procesarSismo(evento.coordenadas, evento.ubicacion);
-                        }
-                    });
+                    if (eventos && eventos.length > 0) {
+                        console.log("📥 Eventos recibidos:", eventos);
+                        procesarEventos(eventos);
+                    } else {
+                        console.log("✅ No hay eventos nuevos.");
+                    }
                 } else {
                     console.error("❌ Error al obtener datos del servidor:", response.status);
                 }
@@ -177,8 +183,9 @@
             }
         }
 
-        // Actualizar mapa cada 5 segundos
-        setInterval(listenForEarthquakeData, 5000);
+        // Actualizar cada 1 segundo
+        setInterval(listenForEarthquakeData, 1000);
+        console.log("🚀 Web cargada correctamente. Analizando cada 1 segundo...");
     </script>
 </body>
 </html>
