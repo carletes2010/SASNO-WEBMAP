@@ -1,1 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapa Sísmico</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .alerta-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #FF0000; /* Fondo rojo */
+            color: #FFFFFF; /* Texto blanco */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 9999;
+        }
+
+        h1 {
+            font-size: 4rem;
+            margin: 0;
+        }
+
+        .icono-mano {
+            margin: 2rem 0;
+        }
+
+        .icono-mano img {
+            width: 150px;
+            height: 150px;
+        }
+
+        p {
+            font-size: 1.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .nota {
+            font-size: 0.9rem;
+        }
+
+        .boton-container {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        button {
+            background-color: #FFFFFF;
+            color: #FF0000;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #FFDADA;
+        }
+    </style>
+</head>
+<body>
+    <!-- Contenedor del mapa -->
+    <div id="map"></div>
+
+    <!-- Contenedor de la alerta sísmica -->
+    <div id="alerta" class="alerta-container hidden">
+        <h1>Alerta Sísmica</h1>
+        <div class="icono-mano">
+            <img src="manogg.png" alt="Ícono de Mano">
+        </div>
+        <p><strong>Sismo fuerte, mantén la calma y procede a evacuar</strong></p>
+        <p class="nota">Aviso sujeto a posibles errores</p>
+        <div class="boton-container">
+            <button onclick="cerrarAviso()">Cerrar Aviso</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Configurar el mapa centrado en las coordenadas iniciales
+        var map = L.map('map', {
+            center: [19.446, -99.965],
+            zoom: 7,
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Almacenar referencias a las ondas activas
+        const activeCircles = {};
+
+        // Mostrar alerta sísmica
+        function mostrarAlerta() {
+            document.getElementById("alerta").classList.remove("hidden");
+            document.getElementById("map").classList.add("hidden");
+        }
+
+        // Cerrar alerta sísmica y volver al mapa
+        function cerrarAviso() {
+            document.getElementById("alerta").classList.add("hidden");
+            document.getElementById("map").classList.remove("hidden");
+        }
+
+        // Función para iniciar las ondas dinámicamente
+        function triggerWaves(id, lat, lng) {
+            const center = [lat, lng];
+
+            // Si ya existe el círculo para este aviso, no lo duplicamos
+            if (activeCircles[id]) return;
+
+            // Mostrar alerta para sismos fuertes
+            if (id.includes("fuerte")) {
+                mostrarAlerta();
+            }
+
+            // Crear ondas y almacenarlas
+            const primaryWave = simulateWave(center, 7000, 'purple'); // Velocidad de 7 km/s, color morado
+            const secondaryWave = simulateWave(center, 4000, '#efb810'); // Velocidad de 4 km/s, color amarillo
+
+            // Guardar referencias en activeCircles para eliminarlas después
+            activeCircles[id] = [primaryWave, secondaryWave];
+
+            // Eliminar ondas después de 120 segundos
+            setTimeout(() => {
+                activeCircles[id].forEach(circle => map.removeLayer(circle));
+                delete activeCircles[id];
+            }, 120000); // 120 segundos
+        }
+
+        function simulateWave(center, speed, color) {
+            var radius = 0;
+            var intervalSpeed = speed / 100;
+            var duration = 120000; // 120 segundos
+            var startTime = Date.now();
+            var circle = L.circle(center, {
+                color: color,
+                fillOpacity: 0,
+                radius: radius
+            }).addTo(map);
+
+            // Intervalo para actualizar el círculo
+            var interval = setInterval(function () {
+                var currentTime = Date.now();
+                if (currentTime - startTime < duration) {
+                    radius += intervalSpeed;
+                    circle.setRadius(radius);
+                    var remainingTime = duration - (currentTime - startTime);
+                    var newOpacity = remainingTime / duration;
+                    circle.setStyle({ opacity: newOpacity });
+                } else {
+                    clearInterval(interval);
+                }
+            }, 10);
+
+            return circle;
+        }
+
+        // Escuchar nuevas coordenadas desde el servidor
+        async function listenForEarthquakeData() {
+            try {
+                const response = await fetch('https://sasjcwebmap.onrender.com/eventos');
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("🌍 Nuevos avisos recibidos:", data);
+
+                    data.forEach(aviso => {
+                        if (aviso.lat && aviso.lng) {
+                            const id = `${aviso.lat}-${aviso.lng}`; // Generar un ID único
+                            triggerWaves(id, aviso.lat, aviso.lng);
+                        }
+                    });
+                } else {
+                    console.error("❌ Error al obtener datos del servidor:", response.status);
+                }
+            } catch (error) {
+                console.error("⚠️ Error de conexión al servidor:", error);
+            }
+        }
+
+        // Actualizar mapa cada 5 segundos para recibir nuevas coordenadas
+        setInterval(listenForEarthquakeData, 5000);
+    </script>
+</body>
+</html>
 
