@@ -173,7 +173,7 @@
             eventos.forEach(evento => {
                 if (evento.evento === "alerta_sismica") {
                     console.log("🚨 Alerta sísmica detectada.");
-                    mostrarIframe("/alerta.html");
+                    mostrarIframe("https://carletes2010.github.io/SASNO-WEBMAP/alerta.html");
                 } else if (evento.evento === "sismo_detectado" && evento.coordenadas) {
                     const [lat, lng] = evento.coordenadas.split(',').map(coord => parseFloat(coord.trim()));
                     simularOndas(lat, lng);
