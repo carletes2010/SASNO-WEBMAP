@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mapa Sísmico</title>
+    <title>Mapa SASNO</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
@@ -173,7 +173,7 @@
             eventos.forEach(evento => {
                 if (evento.evento === "alerta_sismica") {
                     console.log("🚨 Alerta sísmica detectada.");
-                    mostrarIframe("https://monitorsasjc.vercel.app/alerta.html");
+                    mostrarIframe("/alerta.html");
                 } else if (evento.evento === "sismo_detectado" && evento.coordenadas) {
                     const [lat, lng] = evento.coordenadas.split(',').map(coord => parseFloat(coord.trim()));
                     simularOndas(lat, lng);
